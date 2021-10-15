@@ -129,190 +129,227 @@ libpostproc    55.  9.100 / 55.  9.100
 
 由于开发板跑Linux不具备和PC Ubuntu一样的能力。所以最快捷的方式是使用FFmpeg-static静态编译，生成可执行文件直接在板子上跑。
 
-这个得感谢github的**[Jonas Chevalier](https://github.com/zimbatm/ffmpeg-static)**和**[John Van Sickle](https://www.johnvansickle.com/ffmpeg/)**：
+这个得感谢github的**[Jonas Chevalier](https://github.com/zimbatm/ffmpeg-static)**和**[John Van Sickle](https://www.johnvansickle.com/ffmpeg/)**。两个人分别提供了现成的编译脚本或者编译文件。
+
+##### 1. 首先我说一下**Jonas Chevalier**如何编译。
+
+Ubuntu用户直接用下面一条命令即可：
 
 ```bash
-sudo apt-get remove docker docker-engine docker.io containerd runc
+sudo ./build-ubuntu.sh   #似乎这个5年没有人更新了编译有问题。这个必须是基于Ubuntu18.04的版本。
 ```
 
-命令log如下：
+最近更新的是[Dockerfile](https://github.com/zimbatm/ffmpeg-static/blob/master/Dockerfile)和[build.sh](https://github.com/zimbatm/ffmpeg-static/blob/master/build.sh)。浏览了Dockerfile
 
 ```bash
-$ sudo apt-get remove docker docker-engine docker.io containerd runc
-Reading package lists... Done
-Building dependency tree       
-Reading state information... Done
-Package 'docker-engine' is not installed, so not removed
-Package 'docker' is not installed, so not removed
-Package 'containerd' is not installed, so not removed
-Package 'docker.io' is not installed, so not removed
-Package 'runc' is not installed, so not removed
-The following packages were automatically installed and are no longer required:
-  libass5 libavcodec-ffmpeg56 libavdevice-ffmpeg56 libavfilter-ffmpeg5 libavformat-ffmpeg56 libavresample-ffmpeg2 libavutil-ffmpeg54 libbluray1 libmodplug1 libopencv-core2.4v5 libopencv-imgproc2.4v5 libopenjpeg5 libpostproc-ffmpeg53 libschroedinger-1.0-0
-  libsdl1.2debian libswresample-ffmpeg1 libswscale-ffmpeg3 libtbb2 libx264-148 libx265-79
-Use 'sudo apt autoremove' to remove them.
-0 upgraded, 0 newly installed, 0 to remove and 84 not upgraded.
+FROM ubuntu:bionic
+# bionic is Ubuntu18.04
+# Basic packages needed to download dependencies and unpack them.
+RUN apt-get update && apt-get install -y \
+  bzip2 \
+  perl \
+  tar \
+  wget \
+  xz-utils \
+  && rm -rf /var/lib/apt/lists/*
 
+# Install packages necessary for compilation.
+RUN apt-get update && apt-get install -y \
+  autoconf \
+  automake \
+  bash \
+  build-essential \
+  cmake \
+  curl \
+  frei0r-plugins-dev \
+  gawk \
+  libfontconfig-dev \
+  libfreetype6-dev \
+  libopencore-amrnb-dev \
+  libopencore-amrwb-dev \
+  libsdl2-dev \
+  libspeex-dev \
+  libtheora-dev \
+  libtool \
+  libva-dev \
+  libvdpau-dev \
+  libvo-amrwbenc-dev \
+  libvorbis-dev \
+  libwebp-dev \
+  libxcb1-dev \
+  libxcb-shm0-dev \
+  libxcb-xfixes0-dev \
+  libxvidcore-dev \
+  lsb-release \
+  pkg-config \
+  sudo \
+  tar \
+  texi2html \
+  yasm \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy the build scripts.
+COPY dl.tar.gz build.sh download.pl env.source fetchurl /ffmpeg-static/
+
+VOLUME /ffmpeg-static
+WORKDIR /ffmpeg-static
+CMD /bin/bash
 ```
 
-当前称为 Docker Engine-Community 软件包 docker-ce 。
+所以我基于Docker编译,如何搭建Docker环境，大家可以参考**[Ubuntu16.04/18.04/20.04下安装Docker](https://my.oschina.net/weitao520lin/blog/5280239)**。
 
-安装 Docker Engine-Community，以下介绍两种方式。
-
-### **使用 Docker 仓库进行安装**
-
-在新主机上首次安装 Docker Engine-Community 之前，需要设置 Docker 仓库。之后，您可以从仓库安装和更新 Docker 。
-
-**设置仓库**
-
-更新 apt 包索引。
+由于国内强的问题，build.sh里去下载文件的时候会失败。大家可以wget https://gitee.com/msntec/open-source-tool/blob/master/ffmpeg/static/dl.tar.gz到ffmpeg-static目录里。
 
 ```bash
-$ sudo apt-get update
+# 根据当前目录的Dockerfile创建ffmpeg-static镜像
+$ docker build -t ffmpeg-static .
+# 运行ffmpeg-static镜像
+$ docker run -it ffmpeg-static
+# 编译生成静态文件
+$ ./build.sh 
 ```
 
-安装 apt 依赖包，用于通过HTTPS来获取仓库:
+静态的ffmpeg等文件即将被创建再`/ffmpeg-static/bin`目录下：
 
 ```bash
-$ sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common
+root@54ad0ea1b861:/ffmpeg-static/bin# ls -al
+total 85340
+drwxr-xr-x 2 root root     4096 Oct 15 09:23 .
+drwxr-xr-x 6 root root     4096 Oct 15 09:06 ..
+-rwxr-xr-x 1 root root 40376352 Oct 15 09:23 ffmpeg
+-rwxr-xr-x 1 root root 40286240 Oct 15 09:23 ffprobe
+-rwxr-xr-x 1 root root  1910448 Oct 15 09:06 nasm
+-rwxr-xr-x 1 root root  1369576 Oct 15 09:06 ndisasm
+-rwxr-xr-x 1 root root  1143080 Oct 15 09:06 vsyasm
+-rwxr-xr-x 1 root root  1142992 Oct 15 09:06 yasm
+-rwxr-xr-x 1 root root  1134160 Oct 15 09:06 ytasm
+root@54ad0ea1b861:/ffmpeg-static/bin# 
 ```
 
-添加 Docker 的官方 GPG 密钥：
+##### 2. 我们在说一下John Van Sickle的方法。
+
+John Van Sickle比较直接他已经提供好了直接的静态镜像给大家。
+
+![ffmpeg4_static.JPG](./pic/ffmpeg4_static.JPG)
+
+x86_64,x86_32,Arm64,Arm32静态镜像都有。也提供相应的静态编译源码给大家自行编译。
+
+下面我直接拿x86_64解压作为运行事例
 
 ```bash
-$ curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/gpg | sudo apt-key add -
+$ wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+--2021-10-15 17:47:56--  https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+Resolving johnvansickle.com (johnvansickle.com)... 107.180.57.212
+Connecting to johnvansickle.com (johnvansickle.com)|107.180.57.212|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 39577132 (38M) [application/x-xz]
+Saving to: ‘ffmpeg-release-amd64-static.tar.xz’
+
+ffmpeg-release-amd64-static.tar.xz                                100%[============================================================================================================================================================>]  37.74M  6.32MB/s    in 8.3s    
+
+2021-10-15 17:48:05 (4.55 MB/s) - ‘ffmpeg-release-amd64-static.tar.xz’ saved [39577132/39577132]
+
+$ tar -xvJf ffmpeg-release-amd64-static.tar.xz
+ffmpeg-4.4-amd64-static/
+ffmpeg-4.4-amd64-static/GPLv3.txt
+ffmpeg-4.4-amd64-static/manpages/
+ffmpeg-4.4-amd64-static/manpages/ffmpeg-all.txt
+......
+......
+ffmpeg-4.4-amd64-static/model/vmaf_v0.6.1neg.pkl
+ffmpeg-4.4-amd64-static/readme.txt
+ffmpeg-4.4-amd64-static/ffmpeg
+
+$ cd ffmpeg-4.4-amd64-static/
+$ ./ffmpeg -version
+ffmpeg version 4.4-static https://johnvansickle.com/ffmpeg/  Copyright (c) 2000-2021 the FFmpeg developers
+built with gcc 8 (Debian 8.3.0-6)
+configuration: --enable-gpl --enable-version3 --enable-static --disable-debug --disable-ffplay --disable-indev=sndio --disable-outdev=sndio --cc=gcc --enable-fontconfig --enable-frei0r --enable-gnutls --enable-gmp --enable-libgme --enable-gray --enable-libaom --enable-libfribidi --enable-libass --enable-libvmaf --enable-libfreetype --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-librubberband --enable-libsoxr --enable-libspeex --enable-libsrt --enable-libvorbis --enable-libopus --enable-libtheora --enable-libvidstab --enable-libvo-amrwbenc --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libdav1d --enable-libxvid --enable-libzvbi --enable-libzimg
+libavutil      56. 70.100 / 56. 70.100
+libavcodec     58.134.100 / 58.134.100
+libavformat    58. 76.100 / 58. 76.100
+libavdevice    58. 13.100 / 58. 13.100
+libavfilter     7.110.100 /  7.110.100
+libswscale      5.  9.100 /  5.  9.100
+libswresample   3.  9.100 /  3.  9.100
+libpostproc    55.  9.100 / 55.  9.100
+
+$  ldd ./ffmpeg 
+	not a dynamic executable
 ```
 
-使用以下指令设置稳定版仓库
+##### 查看帮助
 
 ```bash
-$ sudo add-apt-repository \
-   "deb [arch=amd64] https://mirrors.ustc.edu.cn/docker-ce/linux/ubuntu/ \
-  $(lsb_release -cs) \
-  stable"
+$ ffmpeg -bsfs      #可用的bit流 
+$ ffmpeg -codecs    #可用的编解码器
+$ ffmpeg -decoders  #可用的解码器
+$ ffmpeg -encoders  #可用的编码器
+$ ffmpeg -filters   #可用的过滤器
+$ ffmpeg -formats   #可用的视频格式
+$ ffmpeg -layouts   #可用的声道布局
+$ ffmpeg -L         #可用的license
+$ ffmpeg -pix_fmts  #可用的像素格式
+$ ffmpeg -protocals #可用的协议
 ```
 
-**安装 Docker Engine-Community**
-
-更新 apt 包索引。
+##### 录屏
 
 ```bash
-$ sudo apt-get update
+ffmpeg -video_size 1920x1080 -framerate 25 -f x11grab -i :0.0 out.mp4
 ```
 
-安装最新版本的 Docker Engine-Community 和 containerd ，或者转到下一步安装特定版本：
+##### UDP推流
 
 ```bash
-$ sudo apt-get install docker-ce docker-ce-cli containerd.io
+ffmpeg -f x11grab -i :0.0 -s 1920x720 -r 50 -vcodec libx264 -preset ultrafast -tune zerolatency -crf 18 -f mpegts udp://192.168.2.102:1234
+ffplay -protocol_whitelist "file,udp,rtp" -i udp://192.168.2.102:1234
 ```
 
-要安装特定版本的 Docker Engine-Community，请在仓库中列出可用版本，然后选择一种安装。列出您的仓库中可用的版本：
+##### 录屏和录音推流命令，不带GPU加速
 
 ```bash
-$ apt-cache madison docker-ce
+ffmpeg -f x11grab -video_size 1920x1080 -framerate 25 -i :0.0+0,0 -f alsa -ac 2 -i default -vcodec libx264 -acodec libmp3lame -ar 44100 -b:a 128k -f mpegts udp://127.0.0.1:1234
 
- docker-ce | 5:20.10.7~3-0~ubuntu-xenial | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 5:20.10.7~3-0~ubuntu-xenial | https://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 5:20.10.6~3-0~ubuntu-xenial | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
-  ...
- docker-ce | 18.06.3~ce~3-0~ubuntu | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 18.06.3~ce~3-0~ubuntu | https://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 18.06.2~ce~3-0~ubuntu | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
-  ...
- docker-ce | 17.12.1~ce-0~ubuntu | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 17.12.1~ce-0~ubuntu | https://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
- docker-ce | 17.12.0~ce-0~ubuntu | http://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
-  ...
- docker-ce | 17.03.0~ce-0~ubuntu-xenial | https://mirrors.aliyun.com/docker-ce/linux/ubuntu xenial/stable amd64 Packages
+[x11grab @ 0x55ef43bdca40] Stream #0: not enough frames to estimate rate; consider increasing probesize
+Input #0, x11grab, from ':0.0+0,0':
+  Duration: N/A, start: 1634292242.014571, bitrate: 1658880 kb/s
+  Stream #0:0: Video: rawvideo (BGR[0] / 0x524742), bgr0, 1920x1080, 1658880 kb/s, 25 fps, 1000k tbr, 1000k tbn, 1000k tbc
+Guessed Channel Layout for Input Stream #1.0 : stereo
+Input #1, alsa, from 'default':
+  Duration: N/A, start: 1634292241.886154, bitrate: 1536 kb/s
+  Stream #1:0: Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (rawvideo (native) -> h264 (libx264))
+  Stream #1:0 -> #0:1 (pcm_s16le (native) -> mp3 (libmp3lame))
+Press [q] to stop, [?] for help
+[libx264 @ 0x55ef43c3b440] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX
+[libx264 @ 0x55ef43c3b440] profile High 4:4:4 Predictive, level 4.0, 4:4:4, 8-bit
+Output #0, mpegts, to 'udp://127.0.0.1:1234':
+  Metadata:
+    encoder         : Lavf58.76.100
+  Stream #0:0: Video: h264, yuv444p(tv, progressive), 1920x1080, q=2-31, 25 fps, 90k tbn
+    Metadata:
+      encoder         : Lavc58.134.100 libx264
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1: Audio: mp3, 44100 Hz, stereo, s16p, 128 kb/s
+    Metadata:
+      encoder         : Lavc58.134.100 libmp3lame
+[alsa @ 0x55ef43be4900] Thread message queue blocking; consider raising the thread_queue_size option (current value: 8)
+[alsa @ 0x55ef43be4900] ALSA buffer xrun.
+frame=   81 fps= 23 q=-1.0 Lsize=     138kB time=00:00:03.20 bitrate= 353.9kbits/s dup=0 drop=1 speed=0.901x
 ```
 
-使用第二列中的版本字符串安装特定版本，例如 5:20.10.6~3-0~ubuntu-xenial。所以如下VERSION_STRING=5:20.10.6~3-0~ubuntu-xenial
+##### 录屏和录音推流命令，带GPU加速。H264+mp3编码
 
 ```bash
-$ sudo apt-get install docker-ce=<VERSION_STRING> docker-ce-cli=<VERSION_STRING> containerd.io
+ffmpeg -f x11grab -video_size 1920x1080 -framerate 25 -i :0.0+0,0 -f alsa -ac 2 -i default -ar 44100 -b:a 128k -acodec libmp3lame -vcodec h264_vaapi -vf scale=1600:900 -f mpegts udp://127.0.0.1:1234
 ```
 
-安装命令log如下：
+##### 录屏和录音推流命令，带GPU加速。H264+aac编码
 
 ```bash
-hinge@hinge-bspserver:~$ sudo apt-get install docker-ce docker-ce-cli containerd.io
-Reading package lists... Done
-Building dependency tree       
-Reading state information... Done
-The following packages were automatically installed and are no longer required:
-  libass5 libavcodec-ffmpeg56 libavdevice-ffmpeg56 libavfilter-ffmpeg5 libavformat-ffmpeg56 libavresample-ffmpeg2 libavutil-ffmpeg54 libbluray1 libmodplug1 libopencv-core2.4v5 libopencv-imgproc2.4v5 libopenjpeg5 libpostproc-ffmpeg53 libschroedinger-1.0-0
-  libsdl1.2debian libswresample-ffmpeg1 libswscale-ffmpeg3 libtbb2 libx264-148 libx265-79
-Use 'sudo apt autoremove' to remove them.
-Suggested packages:
-  aufs-tools cgroupfs-mount | cgroup-lite
-The following NEW packages will be installed:
-  containerd.io docker-ce docker-ce-cli
-0 upgraded, 3 newly installed, 0 to remove and 84 not upgraded.
-Need to get 0 B/93.8 MB of archives.
-After this operation, 426 MB of additional disk space will be used.
-Selecting previously unselected package containerd.io.
-(Reading database ... 218799 files and directories currently installed.)
-Preparing to unpack .../containerd.io_1.4.6-1_amd64.deb ...
-Unpacking containerd.io (1.4.6-1) ...
-Selecting previously unselected package docker-ce-cli.
-Preparing to unpack .../docker-ce-cli_5%3a20.10.7~3-0~ubuntu-xenial_amd64.deb ...
-Unpacking docker-ce-cli (5:20.10.7~3-0~ubuntu-xenial) ...
-Selecting previously unselected package docker-ce.
-Preparing to unpack .../docker-ce_5%3a20.10.7~3-0~ubuntu-xenial_amd64.deb ...
-Unpacking docker-ce (5:20.10.7~3-0~ubuntu-xenial) ...
-Processing triggers for man-db (2.7.5-1) ...
-Processing triggers for ureadahead (0.100.0-19.1) ...
-ureadahead will be reprofiled on next reboot
-Processing triggers for systemd (229-4ubuntu21.28) ...
-Setting up containerd.io (1.4.6-1) ...
-Setting up docker-ce-cli (5:20.10.7~3-0~ubuntu-xenial) ...
-Setting up docker-ce (5:20.10.7~3-0~ubuntu-xenial) ...
-```
-
-如果要使用 Docker 作为非 root 用户，则应考虑使用类似以下方式将用户添加到 docker 组：
-
-```bash
-$ sudo usermod -aG docker ${USER}
-```
-
-注销用户查看是否已经加入到docker组里。
-
-```bash
-$ su ${USER}
-$ id -nG
-hinge adm cdrom sudo dip plugdev lpadmin sambashare docker
-```
-
-测试 Docker 是否安装成功，输入以下指令，打印出以下信息则安装成功:
-
-```bash
-$ docker run hello-world
-
-Hello from Docker!
-This message shows that your installation appears to be working correctly.
-
-To generate this message, Docker took the following steps:
- 1. The Docker client contacted the Docker daemon.
- 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
-    (amd64)
- 3. The Docker daemon created a new container from that image which runs the
-    executable that produces the output you are currently reading.
- 4. The Docker daemon streamed that output to the Docker client, which sent it
-    to your terminal.
-
-To try something more ambitious, you can run an Ubuntu container with:
- $ docker run -it ubuntu bash
-
-Share images, automate workflows, and more with a free Docker ID:
- https://hub.docker.com/
-
-For more examples and ideas, visit:
- https://docs.docker.com/get-started/
-
+ffmpeg -f x11grab -video_size 1920x1080 -framerate 25 -i :0.0+0,0 -f alsa -ac 2 -i default -vcodec h264_vaapi -acodec aac -ar 44100 -b:a 128k -f mpegts udp://127.0.0.1:1234
 ```
 
